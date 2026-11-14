@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>EmojiSlots Arcade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+
+</head>
+<body>
+<header>
+  <h1 class="mark">Emoji<span>Slots</span></h1>
+  <div class="util">
+    <button class="link" id="music" aria-pressed="true">Music on</button>
+    <button class="link" id="sound" aria-pressed="true">Sound on</button>
+    <button class="link" id="reset">Reset</button>
+  </div>
+</header>
+<main>
+  <section class="cabinet" aria-label="Slot machine">
+    <div class="window" id="window">
+      <div class="reel"><div class="strip"></div></div>
+      <div class="reel"><div class="strip"></div></div>
+      <div class="reel"><div class="strip"></div></div>
+      <div class="payline" aria-hidden="true"><i></i></div>
+    </div>
+    <p class="msg" id="msg" role="status" aria-live="polite">Press Spin or the spacebar</p>
+    <p class="note" id="note"></p>
+    <div class="console">
+      <div class="balance"><div class="label">Credits</div><output id="balance">1,000</output></div>
+      <div class="bet">
+        <div class="label">Bet</div>
+        <div class="row">
+          <button class="step" id="minus" aria-label="Lower bet">−</button>
+          <output id="bet">25</output>
+          <button class="step" id="plus" aria-label="Raise bet">+</button>
+        </div>
+      </div>
+      <button class="spin" id="spin">Spin</button>
+    </div>
+    <div class="prog">
+      <div><div class="lrow"><span id="lvl">Level 1</span><span id="xp"></span></div><div class="bar"><i id="xpbar"></i></div></div>
+      <div><div class="lrow"><span id="goal"></span><span id="goalp"></span></div><div class="bar"><i id="gbar"></i></div></div>
+    </div>
+    <div class="foot">
+      <button class="txt" id="paybtn">Paytable and records</button>
+      <button class="auto" id="auto" aria-pressed="false"><span class="sw"></span>Auto-play</button>
+    </div>
+  </section>
+</main>
+
+<dialog id="pay" aria-labelledby="payh">
+  <h2 id="payh">Paytable</h2>
+  <table><thead><tr><th>Symbol</th><th>Pair</th><th>Three</th></tr></thead><tbody id="paybody"></tbody></table>
+  <div class="rec"><span>Best win <b id="rbest">0</b></span><span>Spins played <b id="rspins">0</b></span></div>
+  <button class="close" id="payclose">Close</button>
+</dialog>
+<canvas id="fx" aria-hidden="true"></canvas>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ---------- Data ---------- */
+  const ICONS = {
+    cherry: '<path d="M23 36C25 22 31 14 40 9M43 38C42 26 41 17 40 9" fill="none" stroke="#4f8a6a" stroke-width="3" stroke-linecap="round"/><path d="M40 9c8-3 14 0 17 5-8 2-14 0-17-5z" fill="#5f9c7a"/><circle cx="22" cy="46" r="12" fill="#d4503f"/><circle cx="44" cy="48" r="12" fill="#b93a2b"/><circle cx="18" cy="42" r="3.2" fill="#fff" opacity=".35"/><circle cx="40" cy="44" r="3.2" fill="#fff" opacity=".3"/>',
+    lemon: '<ellipse cx="32" cy="34" rx="24" ry="17" transform="rotate(-25 32 34)" fill="#ecd35c"/><path d="M9 45l-5 4 7 0zM55 23l5-4-7 0z" fill="#c9ae3a"/><ellipse cx="25" cy="28" rx="8" ry="3" transform="rotate(-25 25 28)" fill="#fff" opacity=".4"/>',
+    bell: '<path d="M32 8a4 4 0 0 1 4 4v2c9 2 14 10 14 20v8l6 6H8l6-6v-8c0-10 5-18 14-20v-2a4 4 0 0 1 4-4z" fill="#e0ae52"/><circle cx="32" cy="54" r="5" fill="#a97a2c"/><path d="M20 32c0-6 3-10 8-12" stroke="#fff" stroke-opacity=".45" stroke-width="3" fill="none" stroke-linecap="round"/>',
+    clover: '<circle cx="32" cy="19" r="10" fill="#5fa386"/><circle cx="32" cy="43" r="10" fill="#5fa386"/><circle cx="20" cy="31" r="10" fill="#5fa386"/><circle cx="44" cy="31" r="10" fill="#5fa386"/><circle cx="32" cy="31" r="6" fill="#4a8a6f"/><path d="M34 42q4 10 12 16" stroke="#4a8a6f" stroke-width="4" fill="none" stroke-linecap="round"/>',
+    star: '<polygon points="32,5 39.5,23 59,24.5 44,37 48.5,56 32,46 15.5,56 20,37 5,24.5 24.5,23" fill="#e0ae52" stroke="#a97a2c" stroke-width="2.5" stroke-linejoin="round"/><polygon points="32,15 36,26 32,32 28,26" fill="#fff" opacity=".35"/>',
+    diamond: '<path d="M18 10h28l14 16-28 30L4 26z" fill="#8fd0e6"/><path d="M4 26h56M18 10l-6 16 20 30M46 10l6 16-20 30M32 10l-8 16 8 30 8-30z" fill="none" stroke="#fff" stroke-opacity=".65" stroke-width="2" stroke-linejoin="round"/>',
+    seven: '<text x="32" y="52" text-anchor="middle" font-family="Bricolage Grotesque,system-ui,sans-serif" font-size="58" font-weight="800" fill="#d4503f" stroke="#8c2a20" stroke-width="1.5">7</text>'
+  };
+  const svg = id => `<svg viewBox="0 0 64 64" aria-hidden="true">${ICONS[id]}</svg>`;
+  const SYM = [
+    { id:'cherry',  name:'Cherry',  pl:'Cherries', w:28, pair:1, triple:7 },
+    { id:'lemon',   name:'Lemon',   pl:'Lemons',   w:24, pair:1, triple:9 },
+    { id:'bell',    name:'Bell',    pl:'Bells',    w:18, pair:1, triple:12 },
+    { id:'clover',  name:'Clover',  pl:'Clovers',  w:14, pair:1, triple:20 },
+    { id:'star',    name:'Star',    pl:'Stars',    w: 9, pair:2, triple:40 },
+    { id:'diamond', name:'Diamond', pl:'Diamonds', w: 5, pair:3, triple:80 },
+    { id:'seven',   name:'Seven',   pl:'Sevens',   w: 2, pair:5, triple:200 }
+  ];
+  const BY = Object.fromEntries(SYM.map(s => [s.id, s]));
+  const BETS = [{v:10,l:1},{v:25,l:1},{v:50,l:1},{v:100,l:2},{v:250,l:4},{v:500,l:6},{v:1000,l:9}];
+  const START = 1000;
+  const need = l => 80 + 40 * l;
+  const GOALS = [
+    { id:'streak', text:'Win 3 spins in a row', target:3, reward:150, step:(p,e) => e.win ? p + 1 : 0 },
+    { id:'wins',   text:'Win 6 spins',          target:6, reward:200, step:(p,e) => p + (e.win ? 1 : 0) },
+    { id:'triple', text:'Land three of a kind', target:1, reward:300, step:(p,e) => e.triple ? 1 : p },
+    { id:'big',    text:'Win 400 or more in one spin', target:1, reward:400, step:(p,e) => e.payout >= 400 ? 1 : p },
+    { id:'play',   text:'Play 20 spins',        target:20, reward:120, step:p => p + 1 }
+  ];
+
+  /* ---------- State ---------- */
+  const KEY = 'emojislots.v2';
+  const saved = (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })();
+  const state = {
+    balance: saved.balance > 0 || saved.balance === 0 ? saved.balance : START,
+    betIndex: saved.betIndex ?? 1, level: saved.level || 1, xp: saved.xp || 0,
+    best: saved.best || 0, spins: saved.spins || 0,
+    goal: saved.goal && GOALS.find(g => g.id === saved.goal.id) ? saved.goal : null,
+    music: saved.music !== false, sound: saved.sound !== false,
+    spinning: false, auto: false, shown: [[], [], []]
+  };
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify({
+    balance: state.balance, betIndex: state.betIndex, level: state.level, xp: state.xp, best: state.best,
+    spins: state.spins, goal: state.goal, music: state.music, sound: state.sound })); } catch (e) {} };
+
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const $ = id => document.getElementById(id);
+  const reels = [...document.querySelectorAll('.reel')];
+  const strips = reels.map(r => r.querySelector('.strip'));
+  const fmt = n => Math.round(n).toLocaleString('en-US');
+  const bet = () => BETS[state.betIndex].v;
+  const goalDef = () => GOALS.find(g => g.id === state.goal.id);
+
+  function pick() {
+    let r = Math.random() * 100;
+    for (const s of SYM) { if ((r -= s.w) < 0) return s.id; }
+    return SYM[0].id;
+  }
+
+  /* ---------- Audio: generative music + effects ---------- */
+  const Snd = (() => {
+    let ctx, bus, mus, sfx, verb, delay, nbuf, timer, step = 0, next = 0, playing = false;
+    const BPM = 88, S = 60 / BPM / 4, mtof = m => 440 * 2 ** ((m - 69) / 12);
+    const CH = [ { r:45, n:[57,60,64,67,71] }, { r:41, n:[53,57,60,64] }, { r:48, n:[55,59,64,67] }, { r:43, n:[55,59,62,64] } ];
+
+    function init() {
+      if (ctx) return true;
+      const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return false;
+      ctx = new AC();
+      const comp = ctx.createDynamicsCompressor(); bus = ctx.createGain(); bus.gain.value = .9;
+      bus.connect(comp); comp.connect(ctx.destination);
+      mus = ctx.createGain(); mus.gain.value = 0; mus.connect(bus);
+      sfx = ctx.createGain(); sfx.gain.value = .9; sfx.connect(bus);
+      const len = ctx.sampleRate * 2.4, ir = ctx.createBuffer(2, len, ctx.sampleRate);
+      for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
+      verb = ctx.createConvolver(); verb.buffer = ir; const vg = ctx.createGain(); vg.gain.value = .5; verb.connect(vg); vg.connect(bus);
+      delay = ctx.createDelay(1); delay.delayTime.value = S * 3;
+      const fb = ctx.createGain(); fb.gain.value = .36, lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2200;
+      delay.connect(lp); lp.connect(fb); fb.connect(delay); lp.connect(mus); lp.connect(verb);
+      nbuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+      const nd = nbuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+      return true;
+    }
+    function voice(f, t, d, o = {}) {
+      const osc = ctx.createOscillator(), g = ctx.createGain(); osc.type = o.type || 'sine'; osc.frequency.setValueAtTime(f, t);
+      if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t + d);
+      if (o.det) osc.detune.value = o.det;
+      let n = osc; if (o.lp) { const fl = ctx.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = o.lp; osc.connect(fl); n = fl; }
+      g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(o.vol || .1, t + (o.a || .01)); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+      n.connect(g); g.connect(o.dest || sfx); (o.sends || []).forEach(s => g.connect(s));
+      osc.start(t); osc.stop(t + d + .05);
+    }
+    function noise(t, d, o) {
+      const s = ctx.createBufferSource(); s.buffer = nbuf; const f = ctx.createBiquadFilter(); f.type = o.type || 'highpass';
+      f.frequency.setValueAtTime(o.f, t); if (o.f1) f.frequency.exponentialRampToValueAtTime(o.f1, t + d); f.Q.value = o.q || .7;
+      c<script src="app.js"></script>
